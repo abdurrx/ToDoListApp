@@ -1,13 +1,18 @@
 package com.dicoding.todoapp.notification
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.core.app.NotificationCompat
 import androidx.core.app.TaskStackBuilder
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import com.dicoding.todoapp.R
 import com.dicoding.todoapp.data.Task
+import com.dicoding.todoapp.data.TaskRepository
 import com.dicoding.todoapp.ui.detail.DetailTaskActivity
 import com.dicoding.todoapp.utils.NOTIFICATION_CHANNEL_ID
 import com.dicoding.todoapp.utils.TASK_ID
@@ -32,6 +37,40 @@ class NotificationWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, p
 
     override fun doWork(): Result {
         //TODO 14 : If notification preference on, get nearest active task from repository and show notification with pending intent
+        val taskRepository = TaskRepository.getInstance(applicationContext)
+        val nearestTask = taskRepository.getNearestActiveTask()
+
+        val notificationManager =
+            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val notificationItem =
+            NotificationCompat.Builder(applicationContext, channelName ?: "Task Reminder")
+                .setContentTitle(nearestTask.title)
+                .setContentText(nearestTask.description)
+                .setSmallIcon(R.drawable.ic_notifications)
+                .setContentIntent(getPendingIntent(nearestTask))
+                .setAutoCancel(true)
+                .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+
+            val channel = NotificationChannel(
+                channelName,
+                nearestTask.title,
+                importance
+            ).apply {
+                description = nearestTask.description
+            }
+
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        notificationManager.notify(
+            nearestTask.id,
+            notificationItem
+        )
+
         return Result.success()
     }
 
